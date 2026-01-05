@@ -916,37 +916,43 @@ def control_gpio_sysfs(pin, value):
     try:
         # Export GPIO if not already exported
         if not os.path.exists(gpio_path):
-            subprocess.run(
-                ["sudo", "sh", "-c", f"echo {pin} > {export_path}"],
+            result = subprocess.run(
+                ["sudo", "tee", export_path],
+                input=str(pin),
+                text=True,
                 check=True,
                 capture_output=True,
-                text=True,
                 timeout=5
             )
-            time.sleep(0.1)
+            time.sleep(0.2)
 
         # Set direction to output
+        direction_path = f"{gpio_path}/direction"
         subprocess.run(
-            ["sudo", "sh", "-c", f"echo out > {gpio_path}/direction"],
+            ["sudo", "tee", direction_path],
+            input="out",
+            text=True,
             check=True,
             capture_output=True,
-            text=True,
             timeout=5
         )
 
         # Set GPIO value
+        value_path = f"{gpio_path}/value"
         subprocess.run(
-            ["sudo", "sh", "-c", f"echo {value} > {gpio_path}/value"],
+            ["sudo", "tee", value_path],
+            input=value,
+            text=True,
             check=True,
             capture_output=True,
-            text=True,
             timeout=5
         )
 
         return {"success": True, "error": None}
 
     except subprocess.CalledProcessError as e:
-        return {"success": False, "error": f"GPIO control failed: {e.stderr}"}
+        error_msg = e.stderr if e.stderr else str(e)
+        return {"success": False, "error": f"GPIO control failed: {error_msg}"}
     except subprocess.TimeoutExpired:
         return {"success": False, "error": f"GPIO {pin} control timed out"}
     except Exception as e:
