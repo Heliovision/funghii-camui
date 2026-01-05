@@ -895,10 +895,13 @@ class GPIO:
 # GPIO Control Helper
 ####################
 
+# Global dictionary to store GPIO LED objects
+_gpio_leds = {}
+
 def control_gpio_sysfs(pin, value):
     """
-    Control GPIO pin using Linux sysfs interface via subprocess.
-    No additional Python libraries needed.
+    Control GPIO pin using Python GPIO library.
+    Uses gpiozero (pre-installed on Raspberry Pi OS Bookworm).
 
     Args:
         pin (int): GPIO pin number (BCM numbering)
@@ -907,56 +910,51 @@ def control_gpio_sysfs(pin, value):
     Returns:
         dict: {"success": bool, "error": str or None}
     """
-    import subprocess
-    import time
-
-    gpio_path = f"/sys/class/gpio/gpio{pin}"
-    export_path = "/sys/class/gpio/export"
-
     try:
-        # Export GPIO if not already exported
-        if not os.path.exists(gpio_path):
-            result = subprocess.run(
-                ["sudo", "tee", export_path],
-                input=str(pin),
-                text=True,
-                check=True,
-                capture_output=True,
-                timeout=5
-            )
-            time.sleep(0.2)
+        # Try gpiozero first (modern, pre-installed on Bookworm)
+        from gpiozero import LED
 
-        # Set direction to output
-        direction_path = f"{gpio_path}/direction"
-        subprocess.run(
-            ["sudo", "tee", direction_path],
-            input="out",
-            text=True,
-            check=True,
-            capture_output=True,
-            timeout=5
-        )
+        # Get or create LED object for this pin
+        if pin not in _gpio_leds:
+            _gpio_leds[pin] = LED(pin)
 
-        # Set GPIO value
-        value_path = f"{gpio_path}/value"
-        subprocess.run(
-            ["sudo", "tee", value_path],
-            input=value,
-            text=True,
-            check=True,
-            capture_output=True,
-            timeout=5
-        )
+        led = _gpio_leds[pin]
+
+        # Set the GPIO value
+        if value == "1":
+            led.on()
+        else:
+            led.off()
 
         return {"success": True, "error": None}
 
-    except subprocess.CalledProcessError as e:
-        error_msg = e.stderr if e.stderr else str(e)
-        return {"success": False, "error": f"GPIO control failed: {error_msg}"}
-    except subprocess.TimeoutExpired:
-        return {"success": False, "error": f"GPIO {pin} control timed out"}
+    except ImportError:
+        # Fallback to RPi.GPIO if gpiozero not available
+        try:
+            import RPi.GPIO as GPIO
+
+            # Set up GPIO mode (BCM numbering)
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setwarnings(False)
+
+            # Set up the pin as output
+            GPIO.setup(pin, GPIO.OUT)
+
+            # Set the GPIO value
+            if value == "1":
+                GPIO.output(pin, GPIO.HIGH)
+            else:
+                GPIO.output(pin, GPIO.LOW)
+
+            return {"success": True, "error": None}
+
+        except ImportError:
+            return {"success": False, "error": "No GPIO library available (gpiozero or RPi.GPIO required)"}
+        except Exception as e:
+            return {"success": False, "error": f"RPi.GPIO error: {str(e)}"}
+
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": f"GPIO control error: {str(e)}"}
 
 ####################
 # ImageGallery Class
