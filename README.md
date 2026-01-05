@@ -96,7 +96,41 @@ WantedBy=multi-user.target
 - Run `sudo systemctl start picamera2-webui.service` to start the service 
 - Run the following to check the service is running `sudo systemctl status picamera2-webui.service`
 - Run the following to enable the service to its running on reboot `sudo systemctl enable picamera2-webui.service`
-  
+
+## GPIO Permissions Setup
+
+To enable GPIO control (e.g., for the GPIO Pin 23 LED toggle on the camera detail page), you need to grant the Flask application user permissions to access GPIO pins.
+
+### For user "helio"
+
+**Option 1: Add user to gpio group (Recommended)**
+```bash
+# Add helio user to gpio group
+sudo usermod -a -G gpio helio
+
+# Set group permissions for GPIO sysfs interface
+sudo chmod -R g+rw /sys/class/gpio
+
+# Log out and log back in, or reboot for changes to take effect
+sudo reboot
+```
+
+**Option 2: Configure sudoers for passwordless GPIO access**
+```bash
+# Create sudoers configuration file
+sudo visudo -f /etc/sudoers.d/helio-gpio
+
+# Add the following line to the file:
+helio ALL=(ALL) NOPASSWD: /bin/sh -c echo * > /sys/class/gpio/*
+
+# Save and exit (Ctrl+X, then Y, then Enter)
+```
+
+**Note:** After configuring permissions, restart the CamUI service if running as a service:
+```bash
+sudo systemctl restart picamera2-webui.service
+```
+
 ## Compatibilty
 
 - **Raspberry Pi OS / Debian**

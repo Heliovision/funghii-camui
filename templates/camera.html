@@ -7,6 +7,30 @@
         <div class="col-lg-8 pb-2">
             <!-- ###### Main Content ###### -->
             <h2 class="pb-2 mb-4 border-bottom">Camera: {{camera.Model}}</h2>
+
+            <!-- GPIO Pin 23 LED Control -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <strong class="mb-0">GPIO Pin 23 LED Control</strong>
+                            <small class="text-muted d-block">Controls LED/Light for camera illumination</small>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   role="switch"
+                                   id="gpio23Toggle"
+                                   onchange="toggleGPIO23()">
+                            <label class="form-check-label" for="gpio23Toggle">
+                                <span id="gpio23Status">OFF</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="gpio23Alert" class="alert alert-danger mt-2" style="display: none;" role="alert"></div>
+                </div>
+            </div>
+
             <img class="img-fluid" id="videoFeed" src="/video_feed_{{camera.Num}}">
            
                 {% include "animated_logo.html" %}
@@ -147,6 +171,63 @@ function formatValue(value) {
     }
     return value;
 }
+
+// GPIO Pin 23 Toggle Function
+function toggleGPIO23() {
+    const toggle = document.getElementById('gpio23Toggle');
+    const statusLabel = document.getElementById('gpio23Status');
+    const alertDiv = document.getElementById('gpio23Alert');
+    const newState = toggle.checked;
+
+    // Update UI immediately
+    statusLabel.textContent = newState ? 'ON' : 'OFF';
+    statusLabel.className = newState ? 'text-success fw-bold' : 'text-muted';
+    alertDiv.style.display = 'none';
+    toggle.disabled = true;
+
+    fetch("/toggle_gpio_{{ camera.Num }}", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: 23, state: newState })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log(`GPIO 23 set to ${newState ? 'HIGH' : 'LOW'}`);
+            statusLabel.textContent = data.state ? 'ON' : 'OFF';
+            statusLabel.className = data.state ? 'text-success fw-bold' : 'text-muted';
+        } else {
+            // Revert toggle on error
+            toggle.checked = !newState;
+            statusLabel.textContent = !newState ? 'ON' : 'OFF';
+            statusLabel.className = !newState ? 'text-success fw-bold' : 'text-muted';
+            alertDiv.textContent = `Error: ${data.message || 'Failed to control GPIO'}`;
+            alertDiv.style.display = 'block';
+        }
+    })
+    .catch(error => {
+        // Revert toggle on network error
+        toggle.checked = !newState;
+        statusLabel.textContent = !newState ? 'ON' : 'OFF';
+        statusLabel.className = !newState ? 'text-success fw-bold' : 'text-muted';
+        alertDiv.textContent = 'Network error: Could not reach server';
+        alertDiv.style.display = 'block';
+    })
+    .finally(() => {
+        toggle.disabled = false;
+    });
+}
+
+// Initialize GPIO state on page load (always OFF)
+document.addEventListener('DOMContentLoaded', function() {
+    const toggle = document.getElementById('gpio23Toggle');
+    const statusLabel = document.getElementById('gpio23Status');
+    if (toggle) {
+        toggle.checked = false;
+        statusLabel.textContent = 'OFF';
+        statusLabel.className = 'text-muted';
+    }
+});
 
 </script>
 

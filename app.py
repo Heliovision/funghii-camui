@@ -892,6 +892,67 @@ class GPIO:
         return self.gpio_pins
 
 ####################
+# GPIO Control Helper
+####################
+
+def control_gpio_sysfs(pin, value):
+    """
+    Control GPIO pin using Linux sysfs interface via subprocess.
+    No additional Python libraries needed.
+
+    Args:
+        pin (int): GPIO pin number (BCM numbering)
+        value (str): "0" for LOW, "1" for HIGH
+
+    Returns:
+        dict: {"success": bool, "error": str or None}
+    """
+    import subprocess
+    import time
+
+    gpio_path = f"/sys/class/gpio/gpio{pin}"
+    export_path = "/sys/class/gpio/export"
+
+    try:
+        # Export GPIO if not already exported
+        if not os.path.exists(gpio_path):
+            subprocess.run(
+                ["sudo", "sh", "-c", f"echo {pin} > {export_path}"],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            time.sleep(0.1)
+
+        # Set direction to output
+        subprocess.run(
+            ["sudo", "sh", "-c", f"echo out > {gpio_path}/direction"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+
+        # Set GPIO value
+        subprocess.run(
+            ["sudo", "sh", "-c", f"echo {value} > {gpio_path}/value"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+
+        return {"success": True, "error": None}
+
+    except subprocess.CalledProcessError as e:
+        return {"success": False, "error": f"GPIO control failed: {e.stderr}"}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "error": f"GPIO {pin} control timed out"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+####################
 # ImageGallery Class
 ####################
 
@@ -1416,6 +1477,54 @@ def toggle_video_feed():
         return jsonify({"success": True})
     
     return jsonify({"success": False, "error": "Camera not found"}), 404
+
+@app.route("/toggle_gpio_<int:camera_num>", methods=["POST"])
+def toggle_gpio(camera_num):
+    """Toggle GPIO pin state for LED control."""
+    try:
+        data = request.json
+        pin = data.get("pin")
+        state = data.get("state", False)
+
+        # Validate camera
+        if camera_num not in cameras:
+            return jsonify({
+                "success": False,
+                "message": f"Camera {camera_num} not found"
+            }), 404
+
+        # Validate pin (prevent command injection)
+        if not isinstance(pin, int) or pin < 0 or pin > 27:
+            return jsonify({
+                "success": False,
+                "message": "Invalid GPIO pin number"
+            }), 400
+
+        # Control GPIO
+        gpio_value = "1" if state else "0"
+        result = control_gpio_sysfs(pin, gpio_value)
+
+        if result["success"]:
+            logging.info(f"GPIO {pin} set to {gpio_value}")
+            return jsonify({
+                "success": True,
+                "message": f"GPIO {pin} set to {'HIGH' if state else 'LOW'}",
+                "state": state,
+                "pin": pin
+            })
+        else:
+            logging.error(f"GPIO {pin} error: {result['error']}")
+            return jsonify({
+                "success": False,
+                "message": result["error"]
+            }), 500
+
+    except Exception as e:
+        logging.error(f"GPIO toggle error: {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": f"Server error: {str(e)}"
+        }), 500
 
 @app.route('/preview_<int:camera_num>', methods=['POST'])
 def preview(camera_num):
