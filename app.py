@@ -1,5 +1,5 @@
 # System level imports
-import os, io, logging, json, time, re, glob, math, tempfile
+import os, io, logging, json, time, re, glob, math, tempfile, socket
 from datetime import datetime
 from threading import Condition
 import threading, subprocess
@@ -832,14 +832,22 @@ class CameraObject:
             self.picam2.helpers.save(self.picam2.helpers.make_image(buffers[0], self.still_config["main"]), metadata, f"{filepath}.jpg")
             if self.camera_profile["saveRAW"]:
                 self.picam2.helpers.save_dng(buffers[1], metadata, self.still_config["raw"], f"{filepath}.dng")
-            
+
+            # Add lens position to EXIF metadata
+            lens_position = self.camera_profile.get("controls", {}).get("LensPosition", 0.0)
+            img = Image.open(f"{filepath}.jpg")
+            exif_dict = img.getexif()
+            # Add lens position to ImageDescription (0x010E) and UserComment (0x9286) tags
+            exif_dict[0x010E] = f"LensPosition: {lens_position}"
+            exif_dict[0x9286] = f"LensPosition: {lens_position}"
+            img.save(f"{filepath}.jpg", exif=exif_dict, quality=95)
+
             # Switch to still mode and capture the image
             #self.picam2.switch_mode_and_capture_file(self.still_config, f"{filepath}.jpg")
             print(f"Image captured successfully. Path: {filepath}")
             # Restart video mode
             self.start_streaming()
             print("Applied video config:", self.picam2.camera_configuration())
-             
             self.capturing_still = False
             return f'{filepath}.jpg'
         except Exception as e:
@@ -1420,8 +1428,9 @@ def capture_still(camera_num):
         last_capture_time[camera_num] = current_time
 
         # Generate the new filename
+        hostname = socket.gethostname()
         timestamp = int(time.time())  # Current Unix timestamp
-        image_filename = f"pimage_camera_{camera_num}_{timestamp}"
+        image_filename = f"{hostname}-{timestamp}"
         logging.debug(f"📁 New image filename: {image_filename}")
 
         # Capture and save the new image
