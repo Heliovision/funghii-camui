@@ -526,10 +526,27 @@ function adjustSliderSetting(settingId, value) {
     updateSetting(settingId, value);
 }
 
+// Sync slider to numeric input
+function syncSliderToNumber(settingId, value) {
+    const numberInput = document.getElementById(settingId + "_number");
+    if (numberInput) {
+        numberInput.value = value;
+    }
+}
+
+// Sync numeric input to slider
+function syncNumberToSlider(settingId, value) {
+    const slider = document.getElementById(settingId);
+    if (slider) {
+        slider.value = value;
+    }
+}
+
 document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll('[id$="_conversion"]').forEach(switchElem => {
         const settingId = switchElem.id.replace('_conversion', '');
         const slider = document.getElementById(settingId);
+        const numberInput = document.getElementById(settingId + "_number");
 
         if (!slider) return;
 
@@ -540,13 +557,16 @@ document.addEventListener("DOMContentLoaded", function () {
             const factor = parseFloat(slider.dataset.conversionFactor);
 
             if (isEnabled && !isNaN(factor)) {
-                if (customStep) {
-                    slider.step = customStep;
-                } else {
-                    slider.step = (parseFloat(originalStep) / factor).toFixed(6);
+                const newStep = customStep || (parseFloat(originalStep) / factor).toFixed(6);
+                slider.step = newStep;
+                if (numberInput) {
+                    numberInput.step = newStep;
                 }
             } else {
                 slider.step = originalStep;
+                if (numberInput) {
+                    numberInput.step = originalStep;
+                }
             }
 
             // Update label immediately after switching

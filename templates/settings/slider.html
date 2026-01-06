@@ -32,19 +32,31 @@
     </label>
     {% endif %}
 
-    <!-- Slider -->
-    <input type="range" class="form-range" id="{{ setting.id }}" 
-    min="{{ setting.min }}" max="{{ setting.max }}" step="{{ setting.step }}" 
-    value="{{ setting.get("value", setting.get("default")) }}"
-    data-original-step="{{ setting.step }}"
-    {% if setting.conversion and setting.conversion.enabled %}
-        data-conversion-enabled="true"
-        data-conversion-factor="{{ setting.conversion.factor }}"
-        {% if setting.conversion.step %}
-            data-conversion-step="{{ setting.conversion.step }}"
+    <!-- Slider and Numeric Input Container -->
+    <div class="d-flex align-items-center gap-2">
+        <!-- Slider -->
+        <input type="range" class="form-range flex-grow-1" id="{{ setting.id }}"
+        min="{{ setting.min }}" max="{{ setting.max }}" step="{{ setting.step }}"
+        value="{{ setting.get("value", setting.get("default")) }}"
+        data-original-step="{{ setting.step }}"
+        {% if setting.conversion and setting.conversion.enabled %}
+            data-conversion-enabled="true"
+            data-conversion-factor="{{ setting.conversion.factor }}"
+            {% if setting.conversion.step %}
+                data-conversion-step="{{ setting.conversion.step }}"
+            {% endif %}
         {% endif %}
-    {% endif %}
-    onchange="adjustSliderSetting('{{ setting.id }}', this.value)">
+        oninput="syncSliderToNumber('{{ setting.id }}', this.value)"
+        onchange="adjustSliderSetting('{{ setting.id }}', this.value)">
+
+        <!-- Numeric Input -->
+        <input type="number" class="form-control" id="{{ setting.id }}_number"
+        min="{{ setting.min }}" max="{{ setting.max }}" step="{{ setting.step }}"
+        value="{{ setting.get("value", setting.get("default")) }}"
+        style="width: 100px;"
+        oninput="syncNumberToSlider('{{ setting.id }}', this.value)"
+        onchange="adjustSliderSetting('{{ setting.id }}', this.value)">
+    </div>
 
     <!-- Conversion Switch -->
     {% if setting.conversion and setting.conversion.enabled %}
