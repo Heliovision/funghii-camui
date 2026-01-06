@@ -413,6 +413,28 @@ class CameraObject:
         return camera_json
 
     def update_settings(self, setting_id, setting_value):
+        # Handle AfMode switching to Manual - preserve current lens position
+        if setting_id == "AfMode" and int(setting_value) == 0:  # Switching to Manual mode
+            try:
+                # Capture current metadata to get actual lens position
+                metadata = self.capture_metadata()
+                if metadata and "LensPosition" in metadata:
+                    current_lens_position = metadata["LensPosition"]
+                    print(f"📍 Captured current lens position: {current_lens_position}")
+                    # Store the current lens position in the profile
+                    self.camera_profile.setdefault("controls", {})["LensPosition"] = current_lens_position
+                    # Update the live controls to reflect this value
+                    for section in self.live_controls.get("sections", []):
+                        for setting in section.get("settings", []):
+                            if setting["id"] == "AfMode":
+                                for child in setting.get("childsettings", []):
+                                    if child["id"] == "LensPosition":
+                                        child["value"] = current_lens_position
+                                        print(f"✅ Updated LensPosition in live_controls to {current_lens_position}")
+                                        break
+            except Exception as e:
+                print(f"⚠️ Error capturing lens position: {e}")
+
         # Handle sensor mode separately
         if setting_id == "sensor_mode":
             def sensor_mode_task():
@@ -1565,11 +1587,20 @@ def update_setting():
         print(f"Received update for Camera {camera_num}: {setting_id} -> {new_value}")
         camera = cameras.get(camera_num)
         camera.update_settings(setting_id, new_value)
-        # ✅ At this stage, we're just verifying the data. No changes to the camera yet.
-        return jsonify({
+
+        # If switching to Manual mode, return the current lens position
+        response_data = {
             "success": True,
             "message": f"Received setting update for Camera {camera_num}: {setting_id} -> {new_value}"
-        })
+        }
+
+        # When switching to Manual AfMode, include the captured lens position
+        if setting_id == "AfMode" and int(new_value) == 0:
+            lens_position = camera.camera_profile.get("controls", {}).get("LensPosition")
+            if lens_position is not None:
+                response_data["lensPosition"] = lens_position
+
+        return jsonify(response_data)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500

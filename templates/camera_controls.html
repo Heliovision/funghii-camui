@@ -464,7 +464,7 @@ function toggleChildSettings(settingId, isChecked) {
 // Function to show/hide child settings based on radio selection
 function updateRadioChildVisibility(settingId) {
     let selectedRadio = document.querySelector(`input[name="${settingId}"]:checked`);
-    
+
     if (selectedRadio) {
         let showChild = selectedRadio.dataset.showChild === "true";
         let dependencies = document.getElementById(settingId + "_dependencies");
@@ -472,8 +472,62 @@ function updateRadioChildVisibility(settingId) {
         if (dependencies) {
             dependencies.style.display = showChild ? "block" : "none";
         }
+
+        // Special handling for AfMode - update current lens position display
+        if (settingId === "AfMode") {
+            updateCurrentLensPositionDisplay();
+        }
     }
 }
+
+// Function to update and display current lens position when in Auto/Continuous mode
+function updateCurrentLensPositionDisplay() {
+    const afModeRadio = document.querySelector('input[name="AfMode"]:checked');
+    if (!afModeRadio) return;
+
+    const afModeValue = afModeRadio.value;
+
+    // Fetch current metadata and update lens position display
+    if (afModeValue !== "0") { // Not in Manual mode
+        fetch(`/fetch_metadata_${camera_num}`)
+            .then(response => response.json())
+            .then(metadata => {
+                if (metadata.LensPosition !== undefined) {
+                    // Create or update the lens position info display
+                    let infoDiv = document.getElementById('currentLensPositionInfo');
+                    if (!infoDiv) {
+                        // Create the display element if it doesn't exist
+                        const afModeDependencies = document.getElementById('AfMode_dependencies');
+                        if (afModeDependencies) {
+                            infoDiv = document.createElement('div');
+                            infoDiv.id = 'currentLensPositionInfo';
+                            infoDiv.className = 'alert alert-info mt-2';
+                            afModeDependencies.insertAdjacentElement('beforebegin', infoDiv);
+                        }
+                    }
+                    if (infoDiv) {
+                        infoDiv.innerHTML = `<strong>Current Lens Position:</strong> ${metadata.LensPosition.toFixed(2)} dioptres`;
+                        infoDiv.style.display = 'block';
+                    }
+                }
+            })
+            .catch(error => console.error("Error fetching lens position:", error));
+    } else {
+        // Hide the info div when in Manual mode
+        let infoDiv = document.getElementById('currentLensPositionInfo');
+        if (infoDiv) {
+            infoDiv.style.display = 'none';
+        }
+    }
+}
+
+// Periodically update lens position display when in Auto/Continuous mode
+setInterval(() => {
+    const afModeRadio = document.querySelector('input[name="AfMode"]:checked');
+    if (afModeRadio && afModeRadio.value !== "0") {
+        updateCurrentLensPositionDisplay();
+    }
+}, 2000); // Update every 2 seconds
 
 let camera_num = {{ camera.Num }};
 
@@ -483,7 +537,7 @@ function updateSetting(settingId, newValue) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-            camera_num: camera_num, 
+            camera_num: camera_num,
             id: settingId,
             value: newValue
         })
@@ -492,6 +546,26 @@ function updateSetting(settingId, newValue) {
     .then(data => {
         if (data.success) {
             console.log(`Updated: Camera ${camera_num}, ${settingId} -> ${newValue}`);
+
+            // If switching to Manual AfMode, update the LensPosition slider with the current value
+            if (settingId === "AfMode" && newValue == "0" && data.lensPosition !== undefined) {
+                const lensPositionSlider = document.getElementById("LensPosition");
+                const lensPositionNumber = document.getElementById("LensPosition_number");
+                const lensPositionLabel = document.getElementById("currentLensPosition");
+
+                if (lensPositionSlider) {
+                    lensPositionSlider.value = data.lensPosition;
+                    console.log(`✅ Updated LensPosition slider to: ${data.lensPosition}`);
+                }
+                if (lensPositionNumber) {
+                    lensPositionNumber.value = data.lensPosition;
+                    console.log(`✅ Updated LensPosition number input to: ${data.lensPosition}`);
+                }
+                if (lensPositionLabel) {
+                    lensPositionLabel.textContent = `Value: ${data.lensPosition}`;
+                    console.log(`✅ Updated LensPosition label to: ${data.lensPosition}`);
+                }
+            }
         } else {
             console.error("Error updating setting:", data.error);
         }

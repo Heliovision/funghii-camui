@@ -30,7 +30,7 @@
     {
       "name": "Auto Focus Mode",
       "id": "AfMode",
-      "info": "Manual: manually set the focus by adjusting the lens position below. Auto: auto focus once when 'Auto' is selected. Continuous: continuously auto focus without user interaction.",
+      "info": "Manual: manually set the focus by adjusting the lens position below. Auto: auto focus once when 'Auto' is selected. Continuous: continuously auto focus without user interaction. When switching from Auto/Continuous to Manual, the lens position will automatically be set to the current focus position.",
       "type": "radio",
       "enabled": true,
       "source": "controls",
@@ -41,11 +41,11 @@
         { "value": 1, "label": "Auto", "enabled": true, "show_child": false },
         { "value": 2, "label": "Continuous", "enabled": true, "show_child": false }
       ],
-      "childsettings": [ 
+      "childsettings": [
             {
               "name": "Lens Position",
               "id": "LensPosition",
-              "info": "The period of the lighting cycle in microseconds. For example, for 50Hz mains lighting the flicker occurs at 100Hz, so the period would be 10000 microseconds.",
+              "info": "Manually adjust the lens position to set focus distance. The value is in dioptres (1 / distance in metres). When you switch from Auto/Continuous to Manual mode, this will automatically be set to the current lens position, allowing you to fine-tune from there.",
               "type": "slider",
               "label": "Lens Position:",
               "validation_text": "In dioptres (1 / distance in metres)",
