@@ -983,7 +983,11 @@ class ImageGallery:
             for image_file in image_files:
                 # Extract timestamp from filename
                 try:
-                    unix_timestamp = int(image_file.split('_')[-1].split('.')[0])
+                    # Support both old format (pimage_camera_X_timestamp) and new format (hostname-timestamp)
+                    if '_' in image_file:
+                        unix_timestamp = int(image_file.split('_')[-1].split('.')[0])
+                    else:
+                        unix_timestamp = int(image_file.split('-')[-1].split('.')[0])
                     timestamp = datetime.utcfromtimestamp(unix_timestamp).strftime('%Y-%m-%d %H:%M:%S')
                 except ValueError:
                     logging.warning(f"Skipping file {image_file} due to incorrect timestamp format")
