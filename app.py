@@ -855,8 +855,9 @@ class CameraObject:
             if self.camera_profile["saveRAW"]:
                 self.picam2.helpers.save_dng(buffers[1], metadata, self.still_config["raw"], f"{filepath}.dng")
 
-            # Add lens position to EXIF metadata
-            lens_position = self.camera_profile.get("controls", {}).get("LensPosition", 0.0)
+            # Add lens position to EXIF metadata using actual captured metadata
+            lens_position = metadata.get("LensPosition", 0.0)
+            print(f"📸 Captured image with LensPosition: {lens_position}")
             img = Image.open(f"{filepath}.jpg")
             exif_dict = img.getexif()
             # Add lens position to ImageDescription (0x010E) and UserComment (0x9286) tags
